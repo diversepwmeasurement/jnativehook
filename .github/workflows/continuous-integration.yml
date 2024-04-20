@@ -1,815 +1,581 @@
-name: Continuous Integration
-on:
-  push:
-    branches:
-      - '2.2'
-
-  pull_request:
-    branches:
-      - '2.2'
-
-  release:
-    types: [ created ]
-
 concurrency:
-  group:  ci-${{ github.ref }}
   cancel-in-progress: true
-
+  group: ci-${{ github.ref }}
 jobs:
-  compile-java:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: 17
-          java-package: jdk
-          architecture: x64
-
-      - name: Compile
-        shell: bash
-        run: |
-          mvn \
-            --batch-mode \
-            --no-transfer-progress \
-            compile
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: target-cache
-          path: |
-            ${{github.workspace}}/target
-          if-no-files-found: error
-
-
   compile-apple-arm64:
     needs: compile-java
-    runs-on: macos-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      env:
+        CC: clang
+        CFLAGS: -O2 -g -target arm64-apple-macos10.5 -flto -fomit-frame-pointer -fno-stack-protector
+          -pipe
+        LDFLAGS: -Wl,-dead_strip_dylibs
+      name: Compile
+      run: "mkdir -p target/build/libuiohook/\ncmake -B target/build/libuiohook/ -S\
+        \ src/external/libuiohook/ \\\n  -G \"Unix Makefiles\" \\\n  -D CMAKE_INSTALL_PREFIX=target/\
+        \ \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON \\\n  -D BUILD_SHARED_LIBS=OFF \\\n \
+        \ -D USE_EPOCH_TIME=ON\n\ncmake --build target/build/libuiohook/ \\\n  --parallel\
+        \ 2 \\\n  --clean-first\n\ncmake --install target/build/libuiohook/\n\nmkdir\
+        \ -p target/build/jni/\ncmake -B target/build/jni/ \\\n  -G \"Unix Makefiles\"\
+        \ \\\n  -D CMAKE_PREFIX_PATH=target/ \\\n  -D CMAKE_SYSTEM_NAME=darwin \\\n\
+        \  -D CMAKE_SYSTEM_PROCESSOR=arm64 \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\n\
+        cmake --build target/build/jni/ \\\n  --parallel 2 \\\n  --clean-first\n\n\
+        cmake --install target/build/jni/\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Compile
-        env:
-          CC: clang
-          CFLAGS: '-O2 -g -target arm64-apple-macos10.5 -flto -fomit-frame-pointer -fno-stack-protector -pipe'
-          LDFLAGS: '-Wl,-dead_strip_dylibs'
-        shell: bash
-        run: |
-          mkdir -p target/build/libuiohook/
-          cmake -B target/build/libuiohook/ -S src/external/libuiohook/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_INSTALL_PREFIX=target/ \
-            -D CMAKE_VERBOSE_MAKEFILE=ON \
-            -D BUILD_SHARED_LIBS=OFF \
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target/build/libuiohook/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/libuiohook/
-
-          mkdir -p target/build/jni/
-          cmake -B target/build/jni/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_PREFIX_PATH=target/ \
-            -D CMAKE_SYSTEM_NAME=darwin \
-            -D CMAKE_SYSTEM_PROCESSOR=arm64 \
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target/build/jni/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/jni/
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   compile-apple-x86_64:
     needs: compile-java
-    runs-on: macos-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      env:
+        CC: clang
+        CFLAGS: -O2 -g -target x86_64-apple-macos10.5 -flto -fomit-frame-pointer -fno-stack-protector
+          -pipe
+        LDFLAGS: -Wl,-dead_strip_dylibs
+      name: Compile
+      run: "mkdir -p target/build/libuiohook/\ncmake -B target/build/libuiohook/ -S\
+        \ src/external/libuiohook/ \\\n  -G \"Unix Makefiles\" \\\n  -D CMAKE_INSTALL_PREFIX=target/\
+        \ \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON \\\n  -D BUILD_SHARED_LIBS=OFF \\\n \
+        \ -D USE_EPOCH_TIME=ON\n\ncmake --build target/build/libuiohook/ \\\n  --parallel\
+        \ 2 \\\n  --clean-first\n\ncmake --install target/build/libuiohook/\n\nmkdir\
+        \ -p target/build/jni/\ncmake -B target/build/jni/ \\\n  -G \"Unix Makefiles\"\
+        \ \\\n  -D CMAKE_PREFIX_PATH=target/ \\\n  -D CMAKE_SYSTEM_NAME=darwin \\\n\
+        \  -D CMAKE_SYSTEM_PROCESSOR=x86_64 \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\n\
+        cmake --build target/build/jni/ \\\n  --parallel 2 \\\n  --clean-first\n\n\
+        cmake --install target/build/jni/\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
+          '
+  compile-java:
+    runs-on: self-hosted
+    steps:
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Setup Java
+      uses: actions/setup-java@v2
+      with:
+        architecture: x64
+        distribution: temurin
+        java-package: jdk
+        java-version: 17
+    - continue-on-error: true
+      name: Compile
+      run: "mvn \\\n  --batch-mode \\\n  --no-transfer-progress \\\n  compile\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: target-cache
+        path: '${{github.workspace}}/target
 
-      - name: Compile
-        env:
-          CC: clang
-          CFLAGS: '-O2 -g -target x86_64-apple-macos10.5 -flto -fomit-frame-pointer -fno-stack-protector -pipe'
-          LDFLAGS: '-Wl,-dead_strip_dylibs'
-        shell: bash
-        run: |
-          mkdir -p target/build/libuiohook/
-          cmake -B target/build/libuiohook/ -S src/external/libuiohook/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_INSTALL_PREFIX=target/ \
-            -D CMAKE_VERBOSE_MAKEFILE=ON \
-            -D BUILD_SHARED_LIBS=OFF \
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target/build/libuiohook/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/libuiohook/
-
-          mkdir -p target/build/jni/
-          cmake -B target/build/jni/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_PREFIX_PATH=target/ \
-            -D CMAKE_SYSTEM_NAME=darwin \
-            -D CMAKE_SYSTEM_PROCESSOR=x86_64 \
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target/build/jni/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/jni/
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
-
+          '
   compile-linux-arm:
     needs: compile-java
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      run: "sudo rm -Rf /etc/apt/sources.list.d\nsudo bash -c 'source /etc/lsb-release\
+        \ && echo \"\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}\
+        \ main universe\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu\
+        \ ${DISTRIB_CODENAME}-updates main universe\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu\
+        \ ${DISTRIB_CODENAME}-backports main universe\n\ndeb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports\
+        \ ${DISTRIB_CODENAME} main universe\ndeb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports\
+        \ ${DISTRIB_CODENAME}-updates main universe\ndeb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports\
+        \ ${DISTRIB_CODENAME}-backports main universe\n\" > /etc/apt/sources.list'\n\
+        \nsudo dpkg --add-architecture armhf\nsudo apt-get update -m\n\nsudo apt-get\
+        \ install \\\n  binutils-arm-linux-gnueabihf \\\n  gcc-arm-linux-gnueabihf\n\
+        \nsudo apt-get install \\\n  libx11-dev:armhf \\\n  libxtst-dev:armhf \\\n\
+        \  libxt-dev:armhf \\\n  libxinerama-dev:armhf \\\n  libx11-xcb-dev:armhf\
+        \ \\\n  libxkbcommon-dev:armhf \\\n  libxkbcommon-x11-dev:armhf \\\n  libxkbfile-dev:armhf\n"
+      shell: bash
+    - continue-on-error: true
+      env:
+        CC: arm-linux-gnueabihf-gcc
+        CFLAGS: -Os -march=armv7ve -mfpu=vfp -mfloat-abi=hard -g -flto -fomit-frame-pointer
+          -fno-stack-protector -pipe
+        LDFLAGS: -fuse-ld=gold -Wl,-O1 -Wl,--as-needed
+        PKG_CONFIG_PATH: /usr/lib/arm-linux-gnueabihf/pkgconfig
+      name: Compile
+      run: "mkdir -p target/build/libuiohook/\ncmake -B target/build/libuiohook/ -S\
+        \ src/external/libuiohook/ \\\n  -G \"Unix Makefiles\" \\\n  -D CMAKE_INSTALL_PREFIX=target/\
+        \ \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON \\\n  -D BUILD_SHARED_LIBS=OFF \\\n \
+        \ -D USE_EPOCH_TIME=ON\n\ncmake --build target/build/libuiohook/ \\\n  --parallel\
+        \ 2 \\\n  --clean-first\n\ncmake --install target/build/libuiohook/\n\nmkdir\
+        \ -p target/build/jni/\ncmake -B target/build/jni/ \\\n  -G \"Unix Makefiles\"\
+        \ \\\n  -D CMAKE_PREFIX_PATH=target/ \\\n  -D CMAKE_SYSTEM_NAME=linux \\\n\
+        \  -D CMAKE_SYSTEM_PROCESSOR=arm \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\ncmake\
+        \ --build target/build/jni/ \\\n  --parallel 2 \\\n  --clean-first\n\ncmake\
+        \ --install target/build/jni/\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        shell: bash
-        run: |
-          sudo rm -Rf /etc/apt/sources.list.d
-          sudo bash -c 'source /etc/lsb-release && echo "
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME} main universe
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-updates main universe
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-backports main universe
-
-          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports ${DISTRIB_CODENAME} main universe
-          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports ${DISTRIB_CODENAME}-updates main universe
-          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports ${DISTRIB_CODENAME}-backports main universe
-          " > /etc/apt/sources.list'
-
-          sudo dpkg --add-architecture armhf
-          sudo apt-get update -m
-
-          sudo apt-get install \
-            binutils-arm-linux-gnueabihf \
-            gcc-arm-linux-gnueabihf
-
-          sudo apt-get install \
-            libx11-dev:armhf \
-            libxtst-dev:armhf \
-            libxt-dev:armhf \
-            libxinerama-dev:armhf \
-            libx11-xcb-dev:armhf \
-            libxkbcommon-dev:armhf \
-            libxkbcommon-x11-dev:armhf \
-            libxkbfile-dev:armhf
-
-      - name: Compile
-        env:
-          CC: arm-linux-gnueabihf-gcc
-          CFLAGS: '-Os -march=armv7ve -mfpu=vfp -mfloat-abi=hard -g -flto -fomit-frame-pointer -fno-stack-protector -pipe'
-          LDFLAGS: '-fuse-ld=gold -Wl,-O1 -Wl,--as-needed'
-          PKG_CONFIG_PATH: '/usr/lib/arm-linux-gnueabihf/pkgconfig'
-        shell: bash
-        run: |
-          mkdir -p target/build/libuiohook/
-          cmake -B target/build/libuiohook/ -S src/external/libuiohook/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_INSTALL_PREFIX=target/ \
-            -D CMAKE_VERBOSE_MAKEFILE=ON \
-            -D BUILD_SHARED_LIBS=OFF \
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target/build/libuiohook/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/libuiohook/
-
-          mkdir -p target/build/jni/
-          cmake -B target/build/jni/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_PREFIX_PATH=target/ \
-            -D CMAKE_SYSTEM_NAME=linux \
-            -D CMAKE_SYSTEM_PROCESSOR=arm \
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target/build/jni/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/jni/
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   compile-linux-arm64:
     needs: compile-java
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      run: "sudo rm -Rf /etc/apt/sources.list.d\nsudo bash -c 'source /etc/lsb-release\
+        \ && echo \"\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}\
+        \ main universe\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu\
+        \ ${DISTRIB_CODENAME}-updates main universe\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu\
+        \ ${DISTRIB_CODENAME}-backports main universe\n\ndeb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports\
+        \ ${DISTRIB_CODENAME} main universe\ndeb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports\
+        \ ${DISTRIB_CODENAME}-updates main universe\ndeb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports\
+        \ ${DISTRIB_CODENAME}-backports main universe\n\" > /etc/apt/sources.list'\n\
+        \nsudo dpkg --add-architecture arm64\nsudo apt-get update -m\n\nsudo apt-get\
+        \ install \\\n  binutils-aarch64-linux-gnu \\\n  gcc-aarch64-linux-gnu\n\n\
+        sudo apt-get install \\\n  libx11-dev:arm64 \\\n  libxtst-dev:arm64 \\\n \
+        \ libxt-dev:arm64 \\\n  libxinerama-dev:arm64 \\\n  libx11-xcb-dev:arm64 \\\
+        \n  libxkbcommon-dev:arm64 \\\n  libxkbcommon-x11-dev:arm64 \\\n  libxkbfile-dev:arm64\n"
+      shell: bash
+    - continue-on-error: true
+      env:
+        CC: aarch64-linux-gnu-gcc
+        CFLAGS: -Os -march=armv8-a+crc -mtune=cortex-a53 -g -flto -fomit-frame-pointer
+          -fno-stack-protector -pipe
+        LDFLAGS: -fuse-ld=gold -Wl,-O1 -Wl,--as-needed
+        PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+      name: Compile
+      run: "mkdir -p target/build/libuiohook/\ncmake -B target/build/libuiohook/ -S\
+        \ src/external/libuiohook/ \\\n  -G \"Unix Makefiles\" \\\n  -D CMAKE_INSTALL_PREFIX=target/\
+        \ \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON \\\n  -D BUILD_SHARED_LIBS=OFF \\\n \
+        \ -D USE_EPOCH_TIME=ON\n\ncmake --build target/build/libuiohook/ \\\n  --parallel\
+        \ 2 \\\n  --clean-first\n\ncmake --install target/build/libuiohook/\n\nmkdir\
+        \ -p target/build/jni/\ncmake -B target/build/jni/ \\\n  -G \"Unix Makefiles\"\
+        \ \\\n  -D CMAKE_PREFIX_PATH=target/ \\\n  -D CMAKE_SYSTEM_NAME=linux \\\n\
+        \  -D CMAKE_SYSTEM_PROCESSOR=arm64 \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\n\
+        cmake --build target/build/jni/ \\\n  --parallel 2 \\\n  --clean-first\n\n\
+        cmake --install target/build/jni/\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        shell: bash
-        run: |
-          sudo rm -Rf /etc/apt/sources.list.d
-          sudo bash -c 'source /etc/lsb-release && echo "
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME} main universe
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-updates main universe
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-backports main universe
-
-          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports ${DISTRIB_CODENAME} main universe
-          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports ${DISTRIB_CODENAME}-updates main universe
-          deb [arch=arm64,armhf] http://ports.ubuntu.com/ubuntu-ports ${DISTRIB_CODENAME}-backports main universe
-          " > /etc/apt/sources.list'
-
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update -m
-
-          sudo apt-get install \
-            binutils-aarch64-linux-gnu \
-            gcc-aarch64-linux-gnu
-
-          sudo apt-get install \
-            libx11-dev:arm64 \
-            libxtst-dev:arm64 \
-            libxt-dev:arm64 \
-            libxinerama-dev:arm64 \
-            libx11-xcb-dev:arm64 \
-            libxkbcommon-dev:arm64 \
-            libxkbcommon-x11-dev:arm64 \
-            libxkbfile-dev:arm64
-
-      - name: Compile
-        env:
-          CC: aarch64-linux-gnu-gcc
-          CFLAGS: '-Os -march=armv8-a+crc -mtune=cortex-a53 -g -flto -fomit-frame-pointer -fno-stack-protector -pipe'
-          LDFLAGS: '-fuse-ld=gold -Wl,-O1 -Wl,--as-needed'
-          PKG_CONFIG_PATH: '/usr/lib/aarch64-linux-gnu/pkgconfig'
-        shell: bash
-        run: |
-          mkdir -p target/build/libuiohook/
-          cmake -B target/build/libuiohook/ -S src/external/libuiohook/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_INSTALL_PREFIX=target/ \
-            -D CMAKE_VERBOSE_MAKEFILE=ON \
-            -D BUILD_SHARED_LIBS=OFF \
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target/build/libuiohook/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/libuiohook/
-
-          mkdir -p target/build/jni/
-          cmake -B target/build/jni/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_PREFIX_PATH=target/ \
-            -D CMAKE_SYSTEM_NAME=linux \
-            -D CMAKE_SYSTEM_PROCESSOR=arm64 \
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target/build/jni/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/jni/
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   compile-linux-x86:
     needs: compile-java
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      run: "sudo rm -Rf /etc/apt/sources.list.d\nsudo bash -c 'source /etc/lsb-release\
+        \ && echo \"\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}\
+        \ main universe\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu\
+        \ ${DISTRIB_CODENAME}-updates main universe\ndeb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu\
+        \ ${DISTRIB_CODENAME}-backports main universe\n\" > /etc/apt/sources.list'\n\
+        \nsudo dpkg --add-architecture i386\nsudo apt-get update -m\n\nsudo apt-get\
+        \ install \\\n  binutils-i686-linux-gnu \\\n  gcc-i686-linux-gnu\n\nsudo apt-get\
+        \ install \\\n  libx11-dev:i386 \\\n  libxtst-dev:i386 \\\n  libxt-dev:i386\
+        \ \\\n  libxinerama-dev:i386 \\\n  libx11-xcb-dev:i386 \\\n  libxkbcommon-dev:i386\
+        \ \\\n  libxkbcommon-x11-dev:i386 \\\n  libxkbfile-dev:i386\n"
+      shell: bash
+    - continue-on-error: true
+      env:
+        CC: i686-linux-gnu-gcc
+        CFLAGS: -O2 -march=i686 -mtune=generic -g -fomit-frame-pointer -flto -fno-stack-protector
+          -pipe
+        LDFLAGS: -fuse-ld=gold -Wl,-O1 -Wl,--as-needed
+        PKG_CONFIG_PATH: /usr/lib/i386-linux-gnu/pkgconfig
+      name: Compile
+      run: "mkdir -p target/build/libuiohook/\ncmake -B target/build/libuiohook/ -S\
+        \ src/external/libuiohook/ \\\n  -G \"Unix Makefiles\" \\\n  -D CMAKE_INSTALL_PREFIX=target/\
+        \ \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON \\\n  -D BUILD_SHARED_LIBS=OFF \\\n \
+        \ -D USE_EPOCH_TIME=ON\n\ncmake --build target/build/libuiohook/ \\\n  --parallel\
+        \ 2 \\\n  --clean-first\n\ncmake --install target/build/libuiohook/\n\nmkdir\
+        \ -p target/build/jni/\ncmake -B target/build/jni/ \\\n  -G \"Unix Makefiles\"\
+        \ \\\n  -D CMAKE_PREFIX_PATH=target/ \\\n  -D CMAKE_SYSTEM_NAME=linux \\\n\
+        \  -D CMAKE_SYSTEM_PROCESSOR=x86 \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\ncmake\
+        \ --build target/build/jni/ \\\n  --parallel 2 \\\n  --clean-first\n\ncmake\
+        \ --install target/build/jni/\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        shell: bash
-        run: |
-          sudo rm -Rf /etc/apt/sources.list.d
-          sudo bash -c 'source /etc/lsb-release && echo "
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME} main universe
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-updates main universe
-          deb [arch=amd64,i386] http://us.archive.ubuntu.com/ubuntu ${DISTRIB_CODENAME}-backports main universe
-          " > /etc/apt/sources.list'
-
-          sudo dpkg --add-architecture i386
-          sudo apt-get update -m
-
-          sudo apt-get install \
-            binutils-i686-linux-gnu \
-            gcc-i686-linux-gnu
-
-          sudo apt-get install \
-            libx11-dev:i386 \
-            libxtst-dev:i386 \
-            libxt-dev:i386 \
-            libxinerama-dev:i386 \
-            libx11-xcb-dev:i386 \
-            libxkbcommon-dev:i386 \
-            libxkbcommon-x11-dev:i386 \
-            libxkbfile-dev:i386
-
-      - name: Compile
-        env:
-          CC: i686-linux-gnu-gcc
-          CFLAGS: '-O2 -march=i686 -mtune=generic -g -fomit-frame-pointer -flto -fno-stack-protector -pipe'
-          LDFLAGS: '-fuse-ld=gold -Wl,-O1 -Wl,--as-needed'
-          PKG_CONFIG_PATH: '/usr/lib/i386-linux-gnu/pkgconfig'
-        shell: bash
-        run: |
-          mkdir -p target/build/libuiohook/
-          cmake -B target/build/libuiohook/ -S src/external/libuiohook/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_INSTALL_PREFIX=target/ \
-            -D CMAKE_VERBOSE_MAKEFILE=ON \
-            -D BUILD_SHARED_LIBS=OFF \
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target/build/libuiohook/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/libuiohook/
-
-          mkdir -p target/build/jni/
-          cmake -B target/build/jni/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_PREFIX_PATH=target/ \
-            -D CMAKE_SYSTEM_NAME=linux \
-            -D CMAKE_SYSTEM_PROCESSOR=x86 \
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target/build/jni/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/jni/
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   compile-linux-x86_64:
     needs: compile-java
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      run: "sudo apt-get update -m\n\nsudo apt-get install \\\n  libx11-dev:amd64\
+        \ \\\n  libxtst-dev:amd64 \\\n  libxt-dev:amd64 \\\n  libxinerama-dev:amd64\
+        \ \\\n  libx11-xcb-dev:amd64 \\\n  libxkbcommon-dev:amd64 \\\n  libxkbcommon-x11-dev:amd64\
+        \ \\\n  libxkbfile-dev:amd64\n"
+      shell: bash
+    - continue-on-error: true
+      env:
+        CC: x86_64-linux-gnu-gcc
+        CFLAGS: -O2 -march=x86-64 -mtune=generic -g -fomit-frame-pointer -flto -fno-stack-protector
+          -pipe
+        LDFLAGS: -fuse-ld=gold -Wl,-O1 -Wl,--as-needed
+        PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
+      name: Compile
+      run: "mkdir -p target/build/libuiohook/\ncmake -B target/build/libuiohook/ -S\
+        \ src/external/libuiohook/ \\\n  -G \"Unix Makefiles\" \\\n  -D CMAKE_INSTALL_PREFIX=target/\
+        \ \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON \\\n  -D BUILD_SHARED_LIBS=OFF \\\n \
+        \ -D USE_EPOCH_TIME=ON\n\ncmake --build target/build/libuiohook/ \\\n  --parallel\
+        \ 2 \\\n  --clean-first\n\ncmake --install target/build/libuiohook/\n\nmkdir\
+        \ -p target/build/jni/\ncmake -B target/build/jni/ \\\n  -G \"Unix Makefiles\"\
+        \ \\\n  -D CMAKE_PREFIX_PATH=target/ \\\n  -D CMAKE_SYSTEM_NAME=linux \\\n\
+        \  -D CMAKE_SYSTEM_PROCESSOR=x86_64 \\\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\n\
+        cmake --build target/build/jni/ \\\n  --parallel 2 \\\n  --clean-first\n\n\
+        cmake --install target/build/jni/\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        shell: bash
-        run: |
-          sudo apt-get update -m
-
-          sudo apt-get install \
-            libx11-dev:amd64 \
-            libxtst-dev:amd64 \
-            libxt-dev:amd64 \
-            libxinerama-dev:amd64 \
-            libx11-xcb-dev:amd64 \
-            libxkbcommon-dev:amd64 \
-            libxkbcommon-x11-dev:amd64 \
-            libxkbfile-dev:amd64
-
-      - name: Compile
-        env:
-          CC: x86_64-linux-gnu-gcc
-          CFLAGS: '-O2 -march=x86-64 -mtune=generic -g -fomit-frame-pointer -flto -fno-stack-protector -pipe'
-          LDFLAGS: '-fuse-ld=gold -Wl,-O1 -Wl,--as-needed'
-          PKG_CONFIG_PATH: '/usr/lib/x86_64-linux-gnu/pkgconfig'
-        shell: bash
-        run: |
-          mkdir -p target/build/libuiohook/
-          cmake -B target/build/libuiohook/ -S src/external/libuiohook/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_INSTALL_PREFIX=target/ \
-            -D CMAKE_VERBOSE_MAKEFILE=ON \
-            -D BUILD_SHARED_LIBS=OFF \
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target/build/libuiohook/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/libuiohook/
-
-          mkdir -p target/build/jni/
-          cmake -B target/build/jni/ \
-            -G "Unix Makefiles" \
-            -D CMAKE_PREFIX_PATH=target/ \
-            -D CMAKE_SYSTEM_NAME=linux \
-            -D CMAKE_SYSTEM_PROCESSOR=x86_64 \
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target/build/jni/ \
-            --parallel 2 \
-            --clean-first
-
-          cmake --install target/build/jni/
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
-
+          '
   compile-windows-arm:
     needs: compile-java
-    runs-on: windows-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64_arm
+    - continue-on-error: true
+      env:
+        CFLAGS: /arch:ARMv7VE /O1 /Oy
+      name: Compile
+      run: "md target\\build\\libuiohook\\\ncmake -B target\\build\\libuiohook\\ \
+        \ -S src\\external\\libuiohook\\ ^\n  -G \"Visual Studio 17 2022\" -A ARM\
+        \ ^\n  -D CMAKE_INSTALL_PREFIX=target\\ ^\n  -D CMAKE_VERBOSE_MAKEFILE=ON\
+        \ ^\n  -D BUILD_SHARED_LIBS=OFF ^\n  -D USE_EPOCH_TIME=ON\n\ncmake --build\
+        \ target\\build\\libuiohook\\ ^\n  --parallel 2 ^\n  --config RelWithDebInfo\
+        \ ^\n  --clean-first\n\ncmake --install target\\build\\libuiohook\\ ^\n  --config\
+        \ RelWithDebInfo\n\nmd target\\build\\jni\\\ncmake -B target\\build\\jni\\\
+        \ ^\n  -G \"Visual Studio 17 2022\" -A ARM ^\n  -D CMAKE_PREFIX_PATH=target\\\
+        \ ^\n  -D CMAKE_SYSTEM_NAME=windows ^\n  -D CMAKE_SYSTEM_PROCESSOR=arm ^\n\
+        \  -D CMAKE_VERBOSE_MAKEFILE=ON\n\ncmake --build target\\build\\jni\\ ^\n\
+        \  --parallel 2 ^\n  --config RelWithDebInfo ^\n  --clean-first\n\ncmake --install\
+        \ target\\build\\jni\\ ^\n  --config RelWithDebInfo\n"
+      shell: cmd
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: amd64_arm
-
-      - name: Compile
-        env:
-          CFLAGS: '/arch:ARMv7VE /O1 /Oy'
-        shell: cmd
-        run: |
-          md target\build\libuiohook\
-          cmake -B target\build\libuiohook\  -S src\external\libuiohook\ ^
-            -G "Visual Studio 17 2022" -A ARM ^
-            -D CMAKE_INSTALL_PREFIX=target\ ^
-            -D CMAKE_VERBOSE_MAKEFILE=ON ^
-            -D BUILD_SHARED_LIBS=OFF ^
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target\build\libuiohook\ ^
-            --parallel 2 ^
-            --config RelWithDebInfo ^
-            --clean-first
-
-          cmake --install target\build\libuiohook\ ^
-            --config RelWithDebInfo
-
-          md target\build\jni\
-          cmake -B target\build\jni\ ^
-            -G "Visual Studio 17 2022" -A ARM ^
-            -D CMAKE_PREFIX_PATH=target\ ^
-            -D CMAKE_SYSTEM_NAME=windows ^
-            -D CMAKE_SYSTEM_PROCESSOR=arm ^
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target\build\jni\ ^
-            --parallel 2 ^
-            --config RelWithDebInfo ^
-            --clean-first
-
-          cmake --install target\build\jni\ ^
-            --config RelWithDebInfo
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   compile-windows-x86:
     needs: compile-java
-    runs-on: windows-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64_x86
+    - continue-on-error: true
+      name: Compile
+      run: "md target\\build\\libuiohook\\\ncmake -B target\\build\\libuiohook\\ \
+        \ -S src\\external\\libuiohook\\ ^\n  -G \"Visual Studio 17 2022\" -A Win32\
+        \ ^\n  -D CMAKE_INSTALL_PREFIX=target\\ ^\n  -D CMAKE_VERBOSE_MAKEFILE=ON\
+        \ ^\n  -D BUILD_SHARED_LIBS=OFF ^\n  -D USE_EPOCH_TIME=ON\n\ncmake --build\
+        \ target\\build\\libuiohook\\ ^\n  --parallel 2 ^\n  --config RelWithDebInfo\
+        \ ^\n  --clean-first\n\ncmake --install target\\build\\libuiohook\\ ^\n  --config\
+        \ RelWithDebInfo\n\nmd target\\build\\jni\\\ncmake -B target\\build\\jni\\\
+        \ ^\n  -G \"Visual Studio 17 2022\" -A Win32 ^\n  -D CMAKE_PREFIX_PATH=target\\\
+        \ ^\n  -D CMAKE_SYSTEM_NAME=windows ^\n  -D CMAKE_SYSTEM_PROCESSOR=x86 ^\n\
+        \  -D CMAKE_VERBOSE_MAKEFILE=ON\n\ncmake --build target\\build\\jni\\ ^\n\
+        \  --parallel 2 ^\n  --config RelWithDebInfo ^\n  --clean-first\n\ncmake --install\
+        \ target\\build\\jni\\ ^\n  --config RelWithDebInfo\n"
+      shell: cmd
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: amd64_x86
-
-      - name: Compile
-        shell: cmd
-        run: |
-          md target\build\libuiohook\
-          cmake -B target\build\libuiohook\  -S src\external\libuiohook\ ^
-            -G "Visual Studio 17 2022" -A Win32 ^
-            -D CMAKE_INSTALL_PREFIX=target\ ^
-            -D CMAKE_VERBOSE_MAKEFILE=ON ^
-            -D BUILD_SHARED_LIBS=OFF ^
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target\build\libuiohook\ ^
-            --parallel 2 ^
-            --config RelWithDebInfo ^
-            --clean-first
-
-          cmake --install target\build\libuiohook\ ^
-            --config RelWithDebInfo
-
-          md target\build\jni\
-          cmake -B target\build\jni\ ^
-            -G "Visual Studio 17 2022" -A Win32 ^
-            -D CMAKE_PREFIX_PATH=target\ ^
-            -D CMAKE_SYSTEM_NAME=windows ^
-            -D CMAKE_SYSTEM_PROCESSOR=x86 ^
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target\build\jni\ ^
-            --parallel 2 ^
-            --config RelWithDebInfo ^
-            --clean-first
-
-          cmake --install target\build\jni\ ^
-            --config RelWithDebInfo
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   compile-windows-x86_64:
     needs: compile-java
-    runs-on: windows-latest
-
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Setup
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64
+    - continue-on-error: true
+      name: Compile
+      run: "md target\\build\\libuiohook\\\ncmake -B target\\build\\libuiohook\\ \
+        \ -S src\\external\\libuiohook\\ ^\n  -G \"Visual Studio 17 2022\" -A x64\
+        \ ^\n  -D CMAKE_INSTALL_PREFIX=target\\ ^\n  -D CMAKE_VERBOSE_MAKEFILE=ON\
+        \ ^\n  -D BUILD_SHARED_LIBS=OFF ^\n  -D USE_EPOCH_TIME=ON\n\ncmake --build\
+        \ target\\build\\libuiohook\\ ^\n  --parallel 2 ^\n  --config RelWithDebInfo\
+        \ ^\n  --clean-first\n\ncmake --install target\\build\\libuiohook\\ ^\n  --config\
+        \ RelWithDebInfo\n\nmd target\\build\\jni\\\ncmake -B target\\build\\jni\\\
+        \ ^\n  -G \"Visual Studio 17 2022\" -A x64 ^\n  -D CMAKE_PREFIX_PATH=target\\\
+        \ ^\n  -D CMAKE_SYSTEM_NAME=windows ^\n  -D CMAKE_SYSTEM_PROCESSOR=x86_64\
+        \ ^\n  -D CMAKE_VERBOSE_MAKEFILE=ON\n\ncmake --build target\\build\\jni\\\
+        \ ^\n  --parallel 2 ^\n  --config RelWithDebInfo ^\n  --clean-first\n\ncmake\
+        \ --install target\\build\\jni\\ ^\n  --config RelWithDebInfo\n"
+      shell: cmd
+    - continue-on-error: true
+      name: Upload
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: library-resources
+        path: '${{github.workspace}}/src/main/resources
 
-      - name: Download
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
-
-      - name: Setup
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: amd64
-
-      - name: Compile
-        shell: cmd
-        run: |
-          md target\build\libuiohook\
-          cmake -B target\build\libuiohook\  -S src\external\libuiohook\ ^
-            -G "Visual Studio 17 2022" -A x64 ^
-            -D CMAKE_INSTALL_PREFIX=target\ ^
-            -D CMAKE_VERBOSE_MAKEFILE=ON ^
-            -D BUILD_SHARED_LIBS=OFF ^
-            -D USE_EPOCH_TIME=ON
-
-          cmake --build target\build\libuiohook\ ^
-            --parallel 2 ^
-            --config RelWithDebInfo ^
-            --clean-first
-
-          cmake --install target\build\libuiohook\ ^
-            --config RelWithDebInfo
-
-          md target\build\jni\
-          cmake -B target\build\jni\ ^
-            -G "Visual Studio 17 2022" -A x64 ^
-            -D CMAKE_PREFIX_PATH=target\ ^
-            -D CMAKE_SYSTEM_NAME=windows ^
-            -D CMAKE_SYSTEM_PROCESSOR=x86_64 ^
-            -D CMAKE_VERBOSE_MAKEFILE=ON
-
-          cmake --build target\build\jni\ ^
-            --parallel 2 ^
-            --config RelWithDebInfo ^
-            --clean-first
-
-          cmake --install target\build\jni\ ^
-            --config RelWithDebInfo
-
-      - name: Upload
-        uses: actions/upload-artifact@v2
-        with:
-          name: library-resources
-          path: |
-            ${{github.workspace}}/src/main/resources
-          if-no-files-found: error
-
+          '
   package:
-    needs: [
-      compile-apple-arm64,
-      compile-apple-x86_64,
-      compile-linux-arm,
-      compile-linux-arm64,
-      compile-linux-x86,
-      compile-linux-x86_64,
-      compile-windows-arm,
-      compile-windows-x86,
-      compile-windows-x86_64
-    ]
-    runs-on: ubuntu-latest
+    needs:
+    - compile-apple-arm64
+    - compile-apple-x86_64
+    - compile-linux-arm
+    - compile-linux-arm64
+    - compile-linux-x86
+    - compile-linux-x86_64
+    - compile-windows-arm
+    - compile-windows-x86
+    - compile-windows-x86_64
+    runs-on: self-hosted
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          submodules: true
+    - continue-on-error: true
+      name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    - continue-on-error: true
+      name: Download Cache
+      uses: actions/download-artifact@v2
+      with:
+        name: target-cache
+        path: ${{github.workspace}}/target
+    - continue-on-error: true
+      name: Download Libraries
+      uses: actions/download-artifact@v2
+      with:
+        name: library-resources
+        path: ${{github.workspace}}/src/main/resources
+    - continue-on-error: true
+      name: Setup Java
+      uses: actions/setup-java@v2
+      with:
+        architecture: x64
+        distribution: temurin
+        java-package: jdk
+        java-version: 17
+        server-id: ossrh
+        server-password: MAVEN_PASSWORD
+        server-username: MAVEN_USERNAME
+    - continue-on-error: true
+      if: ${{ github.event_name != 'push' && github.event_name != 'release' }}
+      name: Package
+      run: "mvn \\\n  --batch-mode \\\n  --no-transfer-progress \\\n  package\n"
+    - continue-on-error: true
+      if: ${{ github.event_name == 'push' || github.event_name == 'release' }}
+      name: Setup GPG
+      run: 'cat <(echo -e "${{ secrets.OSSRH_GPG_SECRET_KEY }}") | gpg --batch --import
 
-      - name: Download Cache
-        uses: actions/download-artifact@v2
-        with:
-          name: target-cache
-          path: ${{github.workspace}}/target
+        gpg --list-secret-keys --keyid-format LONG
 
-      - name: Download Libraries
-        uses: actions/download-artifact@v2
-        with:
-          name: library-resources
-          path: ${{github.workspace}}/src/main/resources
+        '
+    - continue-on-error: true
+      env:
+        MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+        MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      if: ${{ github.event_name == 'push' }}
+      name: Sonatype Snapshot
+      run: "mvn \\\n  -Dgpg.passphrase=${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}\
+        \ \\\n  --batch-mode \\\n  --no-transfer-progress \\\n  deploy\n"
+      shell: bash
+    - continue-on-error: true
+      env:
+        MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+        MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
+      name: Sonatype Release
+      run: "mvn \\\n  -Drevision=\"${GITHUB_REF#refs/tags/}\" \\\n  -Dgpg.passphrase=\"\
+        ${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}\" \\\n  --batch-mode \\\n  --no-transfer-progress\
+        \ \\\n  deploy\n"
+      shell: bash
+    - continue-on-error: true
+      name: Upload Artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        if-no-files-found: error
+        name: build-artifacts
+        path: '${{github.workspace}}/target/*.jar
 
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: 17
-          java-package: jdk
-          architecture: x64
-          server-id: ossrh
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
+          ${{github.workspace}}/target/*.asc
 
-      - name: Package
-        if: ${{ github.event_name != 'push' && github.event_name != 'release' }}
-        run: |
-          mvn \
-            --batch-mode \
-            --no-transfer-progress \
-            package
+          ${{github.workspace}}/target/*.pom
 
-      - name: Setup GPG
-        if: ${{ github.event_name == 'push' || github.event_name == 'release' }}
-        run: |
-          cat <(echo -e "${{ secrets.OSSRH_GPG_SECRET_KEY }}") | gpg --batch --import
-          gpg --list-secret-keys --keyid-format LONG
+          '
+    - continue-on-error: true
+      if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
+      name: Release Artifacts
+      uses: softprops/action-gh-release@v1
+      with:
+        files: '${{github.workspace}}/target/*.jar
 
-      - name: Sonatype Snapshot
-        if: ${{ github.event_name == 'push' }}
-        env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
-        shell: bash
-        run: |
-          mvn \
-            -Dgpg.passphrase=${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }} \
-            --batch-mode \
-            --no-transfer-progress \
-            deploy
+          ${{github.workspace}}/target/*.asc
 
-      - name: Sonatype Release
-        if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
-        env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
-        shell: bash
-        run: |
-          mvn \
-            -Drevision="${GITHUB_REF#refs/tags/}" \
-            -Dgpg.passphrase="${{ secrets.OSSRH_GPG_SECRET_KEY_PASSWORD }}" \
-            --batch-mode \
-            --no-transfer-progress \
-            deploy
+          ${{github.workspace}}/target/*.pom
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: build-artifacts
-          path: |
-            ${{github.workspace}}/target/*.jar
-            ${{github.workspace}}/target/*.asc
-            ${{github.workspace}}/target/*.pom
-          if-no-files-found: error
-
-      - name: Release Artifacts
-        if: ${{ github.event_name == 'release' && github.event.action == 'created' }}
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            ${{github.workspace}}/target/*.jar
-            ${{github.workspace}}/target/*.asc
-            ${{github.workspace}}/target/*.pom
-
-      - name: Delete Cache
-        uses: geekyeggo/delete-artifact@v1
-        with:
-          name: target-cache
+          '
+    - continue-on-error: true
+      name: Delete Cache
+      uses: geekyeggo/delete-artifact@v1
+      with:
+        name: target-cache
+name: Continuous Integration
+on:
+  repository_dispatch:
+    types: trigger-ga___continuous-integration.yml
